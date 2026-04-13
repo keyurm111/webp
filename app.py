@@ -90,7 +90,7 @@ with st.sidebar:
 st.title("🖼️ OptiPress")
 st.write("Convert and compress images to WebP instantly.")
 
-uploaded_files = st.file_uploader("", type=["jpg", "jpeg", "png", "webp"], accept_multiple_files=True)
+uploaded_files = st.file_uploader("Upload images", type=["jpg", "jpeg", "png", "webp"], accept_multiple_files=True, label_visibility="collapsed")
 
 def process_image(file, q, s, rot, alpha, rm_bg):
     with Image.open(file) as img:
