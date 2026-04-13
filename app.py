@@ -1,5 +1,9 @@
 import streamlit as st
 from PIL import Image, ImageOps 
+try:
+    from rembg import remove
+except ImportError:
+    remove = None
 import os
 import zipfile
 from io import BytesIO
@@ -10,18 +14,54 @@ st.set_page_config(page_title="OptiPress | Simple Image Optimizer", page_icon="�
 # --- Minimalist CSS ---
 st.markdown("""
     <style>
-    .stApp { background-color: #ffffff; }
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap');
+    
+    html, body, [data-testid="stAppViewContainer"] {
+        font-family: 'Outfit', sans-serif;
+        background-color: #f8f9fa;
+    }
+    
+    .stApp { background-color: #f8f9fa; }
+    
     .stButton>button {
-        background: #007bff;
+        background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
         color: white;
-        border-radius: 8px;
-        height: 3em;
+        border-radius: 12px;
+        height: 3.5em;
         font-weight: 600;
         width: 100%;
         border: none;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
     }
-    .stButton>button:hover { background: #0056b3; border: none; color: white; }
-    div[data-testid="stMetricValue"] { font-size: 24px; color: #007bff; }
+    
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.3);
+        background: linear-gradient(135deg, #4f46e5 0%, #9333ea 100%);
+        color: white;
+    }
+    
+    div[data-testid="stMetricValue"] {
+        font-size: 28px;
+        color: #6366f1;
+        font-weight: 700;
+    }
+    
+    .stMarkdown h1 {
+        background: linear-gradient(to right, #6366f1, #a855f7);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800;
+    }
+    
+    /* Modern Card Style for File Uploader */
+    [data-testid="stFileUploader"] {
+        background: white;
+        padding: 2rem;
+        border-radius: 16px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -41,6 +81,10 @@ with st.sidebar:
     with st.expander("Advanced Tools"):
         fix_rotation = st.checkbox("Fix Photo Rotation", value=True)
         keep_alpha = st.checkbox("Keep Transparency", value=True)
+        remove_bg = st.checkbox("Remove Background ✨", value=False, help="Automatically remove image backgrounds using AI.")
+        
+    if remove_bg and remove is None:
+        st.sidebar.warning("⚠️ 'rembg' library not found. Background removal will be skipped.")
 
 # --- Main Logic ---
 st.title("🖼️ OptiPress")
@@ -48,9 +92,15 @@ st.write("Convert and compress images to WebP instantly.")
 
 uploaded_files = st.file_uploader("", type=["jpg", "jpeg", "png", "webp"], accept_multiple_files=True)
 
-def process_image(file, q, s, rot, alpha):
+def process_image(file, q, s, rot, alpha, rm_bg):
     with Image.open(file) as img:
         if rot: img = ImageOps.exif_transpose(img)
+        
+        # Background Removal
+        if rm_bg and remove:
+            img = remove(img)
+            # Ensure transparency is preserved if background is removed
+            alpha = True 
         
         # Mode handling
         if img.mode in ("RGBA", "P") and not alpha:
@@ -79,7 +129,7 @@ if uploaded_files:
                 orig_bytes = f.getvalue()
                 t_orig += len(orig_bytes)
                 
-                webp = process_image(f, quality, scale, fix_rotation, keep_alpha)
+                webp = process_image(f, quality, scale, fix_rotation, keep_alpha, remove_bg)
                 t_new += len(webp)
                 
                 zf.writestr(f"{os.path.splitext(f.name)[0]}.webp", webp)
